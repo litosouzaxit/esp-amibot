@@ -1,0 +1,324 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local raio = 150
+local miraAtiva = false
+local espAtivo = false
+local alvoAtual = nil
+local suavidade = 0.45
+local tempoSemMovimento = 0
+
+-- GUI principal
+local gui = Instance.new("ScreenGui")
+gui.Name = "AimAssistGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+-- Círculo da mira
+local circulo = Instance.new("Frame")
+circulo.Size = UDim2.fromOffset(raio * 2, raio * 2)
+circulo.Position = UDim2.fromScale(0.5, 0.5)
+circulo.AnchorPoint = Vector2.new(0.5, 0.5)
+circulo.BackgroundTransparency = 1
+circulo.Parent = gui
+
+local borda = Instance.new("UIStroke")
+borda.Color = Color3.fromRGB(0, 255, 0)
+borda.Thickness = 2
+borda.Parent = circulo
+
+local canto = Instance.new("UICorner")
+canto.CornerRadius = UDim.new(1, 0)
+canto.Parent = circulo
+
+-- =========================================
+-- PAINEL
+-- =========================================
+
+local painel = Instance.new("Frame")
+painel.Size = UDim2.fromOffset(360, 250)
+painel.Position = UDim2.fromScale(0.5, 0.5)
+painel.AnchorPoint = Vector2.new(0.5, 0.5)
+painel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+painel.BorderSizePixel = 0
+painel.Parent = gui
+
+local painelCanto = Instance.new("UICorner")
+painelCanto.CornerRadius = UDim.new(0, 10)
+painelCanto.Parent = painel
+
+-- Título
+local titulo = Instance.new("TextLabel")
+titulo.Size = UDim2.new(1, 0, 0, 45)
+titulo.BackgroundTransparency = 1
+titulo.Text = "Combat Panel"
+titulo.TextColor3 = Color3.fromRGB(255, 255, 255)
+titulo.TextSize = 20
+titulo.Font = Enum.Font.GothamBold
+titulo.Parent = painel
+
+-- Abas
+local abaESP = Instance.new("TextButton")
+abaESP.Size = UDim2.fromOffset(150, 35)
+abaESP.Position = UDim2.fromOffset(20, 50)
+abaESP.Text = "ESP"
+abaESP.TextColor3 = Color3.fromRGB(255, 255, 255)
+abaESP.TextSize = 14
+abaESP.Font = Enum.Font.GothamBold
+abaESP.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+abaESP.Parent = painel
+
+local abaAimbot = Instance.new("TextButton")
+abaAimbot.Size = UDim2.fromOffset(150, 35)
+abaAimbot.Position = UDim2.fromOffset(190, 50)
+abaAimbot.Text = "Aimbot"
+abaAimbot.TextColor3 = Color3.fromRGB(255, 255, 255)
+abaAimbot.TextSize = 14
+abaAimbot.Font = Enum.Font.GothamBold
+abaAimbot.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+abaAimbot.Parent = painel
+
+-- =========================================
+-- ABA ESP
+-- =========================================
+
+local espFrame = Instance.new("Frame")
+espFrame.Size = UDim2.new(1, -40, 1, -100)
+espFrame.Position = UDim2.fromOffset(20, 95)
+espFrame.BackgroundTransparency = 1
+espFrame.Parent = painel
+
+local espBotao = Instance.new("TextButton")
+espBotao.Size = UDim2.new(1, 0, 0, 45)
+espBotao.Text = "Ativar ESP: DESLIGADO"
+espBotao.TextColor3 = Color3.fromRGB(255, 255, 255)
+espBotao.TextSize = 15
+espBotao.Font = Enum.Font.Gotham
+espBotao.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+espBotao.Parent = espFrame
+
+-- =========================================
+-- ABA AIMBOT
+-- =========================================
+
+local aimbotFrame = Instance.new("Frame")
+aimbotFrame.Size = UDim2.new(1, -40, 1, -100)
+aimbotFrame.Position = UDim2.fromOffset(20, 95)
+aimbotFrame.BackgroundTransparency = 1
+aimbotFrame.Visible = false
+aimbotFrame.Parent = painel
+
+local aimbotBotao = Instance.new("TextButton")
+aimbotBotao.Size = UDim2.new(1, 0, 0, 45)
+aimbotBotao.Text = "Ativar Aimbot: DESLIGADO"
+aimbotBotao.TextColor3 = Color3.fromRGB(255, 255, 255)
+aimbotBotao.TextSize = 15
+aimbotBotao.Font = Enum.Font.Gotham
+aimbotBotao.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+aimbotBotao.Parent = aimbotFrame
+
+-- =========================================
+-- SISTEMA DE ABAS
+-- =========================================
+
+abaESP.MouseButton1Click:Connect(function()
+    espFrame.Visible = true
+    aimbotFrame.Visible = false
+end)
+
+abaAimbot.MouseButton1Click:Connect(function()
+    espFrame.Visible = false
+    aimbotFrame.Visible = true
+end)
+
+-- =========================================
+-- ESP
+-- =========================================
+
+local function criarESP(outro)
+    if outro == player then
+        return
+    end
+
+    local character = outro.Character
+    if not character then
+        return
+    end
+
+    if character:FindFirstChild("ESP_Highlight") then
+        return
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_Highlight"
+    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.Parent = character
+end
+
+local function removerESP(outro)
+    if outro.Character then
+        local highlight = outro.Character:FindFirstChild("ESP_Highlight")
+
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+end
+
+local function atualizarESP()
+    for _, outro in ipairs(Players:GetPlayers()) do
+        if outro ~= player then
+            if espAtivo then
+                criarESP(outro)
+            else
+                removerESP(outro)
+            end
+        end
+    end
+end
+
+espBotao.MouseButton1Click:Connect(function()
+    espAtivo = not espAtivo
+
+    if espAtivo then
+        espBotao.Text = "Ativar ESP: LIGADO"
+        atualizarESP()
+    else
+        espBotao.Text = "Ativar ESP: DESLIGADO"
+        atualizarESP()
+    end
+end)
+
+Players.PlayerAdded:Connect(function(outro)
+    outro.CharacterAdded:Connect(function()
+        task.wait(1)
+
+        if espAtivo then
+            criarESP(outro)
+        end
+    end)
+end)
+
+-- =========================================
+-- AIMBOT
+-- =========================================
+
+aimbotBotao.MouseButton1Click:Connect(function()
+    miraAtiva = not miraAtiva
+    alvoAtual = nil
+    tempoSemMovimento = 4.5
+    
+
+    if miraAtiva then
+        aimbotBotao.Text = "Ativar Aimbot: LIGADO"
+    else
+        aimbotBotao.Text = "Ativar Aimbot: DESLIGADO"
+    end
+end)
+
+-- =========================================
+-- TECLA M = ABRIR/FECHAR PAINEL
+-- =========================================
+
+UserInputService.InputBegan:Connect(function(input, processado)
+    if processado then
+        return
+    end
+
+    if input.KeyCode == Enum.KeyCode.M then
+        painel.Visible = not painel.Visible
+    end
+end)
+
+-- =========================================
+-- MOVIMENTO DO MOUSE
+-- =========================================
+
+UserInputService.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        alvoAtual = nil
+        tempoSemMovimento = 0
+    end
+end)
+
+-- =========================================
+-- ENCONTRAR ALVO
+-- =========================================
+
+local function encontrarAlvo()
+    local melhorAlvo = nil
+    local menorDistancia = raio
+
+    local centro = Vector2.new(
+        camera.ViewportSize.X / 2,
+        camera.ViewportSize.Y / 2
+    )
+
+    for _, outro in ipairs(Players:GetPlayers()) do
+        if outro ~= player and outro.Character then
+
+            local cabeca = outro.Character:FindFirstChild("Head")
+            local humanoid = outro.Character:FindFirstChildOfClass("Humanoid")
+
+            if cabeca and humanoid and humanoid.Health > 0 then
+
+                local posicao, visivel =
+                    camera:WorldToViewportPoint(cabeca.Position)
+
+                if visivel then
+
+                    local distancia = (
+                        Vector2.new(posicao.X, posicao.Y) - centro
+                    ).Magnitude
+
+                    if distancia < menorDistancia then
+                        menorDistancia = distancia
+                        melhorAlvo = cabeca
+                    end
+                end
+            end
+        end
+    end
+
+    return melhorAlvo
+end
+
+-- =========================================
+-- AIM ASSIST
+-- =========================================
+
+RunService.RenderStepped:Connect(function(dt)
+
+    if not miraAtiva then
+        return
+    end
+
+    tempoSemMovimento += dt
+
+    if not alvoAtual and tempoSemMovimento > 0.15 then
+        alvoAtual = encontrarAlvo()
+    end
+
+    if alvoAtual and alvoAtual.Parent then
+
+        local destino = CFrame.lookAt(
+            camera.CFrame.Position,
+            alvoAtual.Position
+        )
+
+        camera.CFrame = camera.CFrame:Lerp(
+            destino,
+            suavidade
+        )
+
+    else
+        alvoAtual = nil
+    end
+end)
